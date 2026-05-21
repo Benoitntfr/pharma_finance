@@ -18,13 +18,30 @@ from src.excel_styles import (
 from src.utils import safe_div
 
 
-# Échelle d'affichage : on divise par 1000 → "thousands"
-SCALE = 1000
+# ============================================================
+# Scale adaptatif : k ou M selon la taille de la boîte
+# ============================================================
+
+def _decide_scale(pl_data: dict):
+    """
+    Décide l'échelle selon le revenue le plus récent.
+    Retourne (divisor, label).
+    Seuil : 10B revenue → M, sinon → k.
+    """
+    rev_last = pl_data["rows"]["Revenue"][2]
+    if rev_last and abs(rev_last) >= 10e9:
+        return 1_000_000, "millions"
+    return 1_000, "thousands"
 
 
-def _scale(v):
-    return v / SCALE if v is not None else None
+def _apply_scale(values: list, divisor: int) -> list:
+    """Divise une liste de valeurs par le divisor, en préservant les None."""
+    return [v / divisor if v is not None else None for v in values]
 
+
+# ============================================================
+# Entry point
+# ============================================================
 
 def export_to_excel(
     ticker: str,
@@ -42,17 +59,19 @@ def export_to_excel(
     os.makedirs("exports", exist_ok=True)
     filepath = os.path.join("exports", filename)
 
+    scale_div, scale_label = _decide_scale(pl_data)
+
     wb = Workbook()
-    wb.remove(wb.active)  # remove default sheet
+    wb.remove(wb.active)
 
     company_name = identity.get("name", "")
     exchange = info.get("exchange", "")
     money_fmt = get_money_format(currency)
 
     _create_identity_sheet(wb, identity, company_name, exchange, currency)
-    _create_pl_sheet(wb, pl_data, company_name, exchange, ticker, currency, money_fmt)
-    _create_bs_sheet(wb, bs_data, company_name, exchange, ticker, currency, money_fmt)
-    _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, money_fmt)
+    _create_pl_sheet(wb, pl_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label)
+    _create_bs_sheet(wb, bs_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label)
+    _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label)
     _create_ratios_sheet(wb, ratios, company_name, exchange, ticker, currency, money_fmt)
 
     wb.save(filepath)
@@ -64,10 +83,8 @@ def export_to_excel(
 # ============================================================
 
 def _setup_sheet(ws, title_text: str, subtitle_text: str, num_cols: int):
-    """Header standard : titre bleu marine + sous-titre gris + grille off."""
     ws.sheet_view.showGridLines = False
 
-    # Ligne 1 : titre
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
     cell = ws.cell(row=1, column=1, value=title_text)
     cell.font = FONT_TITLE
@@ -75,18 +92,15 @@ def _setup_sheet(ws, title_text: str, subtitle_text: str, num_cols: int):
     cell.alignment = ALIGN_LEFT
     ws.row_dimensions[1].height = 22
 
-    # Ligne 2 : sous-titre
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
     cell = ws.cell(row=2, column=1, value=subtitle_text)
     cell.font = FONT_SUBTITLE
     cell.alignment = ALIGN_LEFT
 
-    # Ligne 3 : vide
     ws.row_dimensions[3].height = 8
 
 
 def _write_section_header(ws, row: int, label: str, num_cols: int):
-    """Bandeau bleu clair, gras."""
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=num_cols)
     cell = ws.cell(row=row, column=1, value=label)
     cell.font = FONT_SECTION
@@ -95,7 +109,6 @@ def _write_section_header(ws, row: int, label: str, num_cols: int):
 
 
 def _write_col_headers(ws, row: int, headers: list):
-    """Headers de colonnes (FY2023, FY2024, ...) sur fond bleu clair."""
     for i, h in enumerate(headers):
         cell = ws.cell(row=row, column=i + 1, value=h)
         cell.font = FONT_HEADER
@@ -105,7 +118,6 @@ def _write_col_headers(ws, row: int, headers: list):
 
 def _write_value_row(ws, row: int, label: str, values: list, num_fmt: str,
                      is_total: bool = False, is_ratio: bool = False):
-    """Ligne valeur ou ratio."""
     label_cell = ws.cell(row=row, column=1, value=label)
     if is_total:
         label_cell.font = FONT_TOTAL
@@ -138,7 +150,6 @@ def _set_col_widths(ws, label_width: int = 38, value_width: int = 16, num_value_
 
 
 def _write_checks(ws, start_row: int, checks: list, num_cols: int) -> int:
-    """Écrit une section 'Checks de cohérence' à la fin de l'onglet."""
     start_row += 2
     _write_section_header(ws, start_row, "Checks de cohérence", num_cols)
     start_row += 1
@@ -200,7 +211,6 @@ def _create_identity_sheet(wb, identity, company_name, exchange, currency):
         ws.cell(row=row, column=2).alignment = ALIGN_LEFT
         row += 1
 
-    # Summary en bas
     summary = identity.get("summary")
     if summary:
         row += 2
@@ -216,21 +226,21 @@ def _create_identity_sheet(wb, identity, company_name, exchange, currency):
         ws.row_dimensions[row].height = 80
 
 
-def _create_pl_sheet(wb, pl_data, company_name, exchange, ticker, currency, money_fmt):
+def _create_pl_sheet(wb, pl_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label):
     ws = wb.create_sheet("P&L")
     years = pl_data["years"]
     rows = pl_data["rows"]
     title = f"{company_name} ({exchange}: {ticker}) - Profit & Loss"
-    _setup_sheet(ws, title, f"All figures in {currency} thousands unless noted.", 4)
+    _setup_sheet(ws, title, f"All figures in {currency} {scale_label} unless noted.", 4)
     _set_col_widths(ws, label_width=38, value_width=16, num_value_cols=3)
 
-    rev = [_scale(v) for v in rows["Revenue"]]
-    gp = [_scale(v) for v in rows["Gross Profit"]]
-    rd = [_scale(v) for v in rows["R&D"]]
-    sga = [_scale(v) for v in rows["SG&A"]]
-    ebit = [_scale(v) for v in rows["EBIT"]]
-    ebitda = [_scale(v) for v in rows["EBITDA"]]
-    ni = [_scale(v) for v in rows["Net Income"]]
+    rev = _apply_scale(rows["Revenue"], scale_div)
+    gp = _apply_scale(rows["Gross Profit"], scale_div)
+    rd = _apply_scale(rows["R&D"], scale_div)
+    sga = _apply_scale(rows["SG&A"], scale_div)
+    ebit = _apply_scale(rows["EBIT"], scale_div)
+    ebitda = _apply_scale(rows["EBITDA"], scale_div)
+    ni = _apply_scale(rows["Net Income"], scale_div)
 
     yoy = [
         None,
@@ -272,27 +282,27 @@ def _create_pl_sheet(wb, pl_data, company_name, exchange, ticker, currency, mone
     _write_value_row(ws, row, "  % Revenue", sga_pct, PCT_FORMAT, is_ratio=True); row += 1
 
 
-def _create_bs_sheet(wb, bs_data, company_name, exchange, ticker, currency, money_fmt):
+def _create_bs_sheet(wb, bs_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label):
     ws = wb.create_sheet("Balance Sheet")
     years = bs_data["years"]
     rows = bs_data["rows"]
     title = f"{company_name} ({exchange}: {ticker}) - Balance Sheet"
-    _setup_sheet(ws, title, f"All figures in {currency} thousands.", 3)
+    _setup_sheet(ws, title, f"All figures in {currency} {scale_label}.", 3)
     _set_col_widths(ws, label_width=38, value_width=18, num_value_cols=2)
 
-    ta = [_scale(v) for v in rows["Total Assets"]]
-    ca = [_scale(v) for v in rows["Current Assets"]]
-    nca = [_scale(v) for v in rows["Non-Current Assets"]]
-    tl = [_scale(v) for v in rows["Total Liabilities"]]
-    cl = [_scale(v) for v in rows["Current Liabilities"]]
-    ncl = [_scale(v) for v in rows["Non-Current Liabilities"]]
-    eq = [_scale(v) for v in rows["Total Equity"]]
-    cash = [_scale(v) for v in rows["Cash & ST Investments"]]
-    cdebt = [_scale(v) for v in rows["Current Debt"]]
-    ltdebt = [_scale(v) for v in rows["Long-Term Debt"]]
-    debt = [_scale(v) for v in rows["Total Debt"]]
-    gw = [_scale(v) for v in rows["Goodwill"]]
-    intang = [_scale(v) for v in rows["Intangible Assets"]]
+    ta = _apply_scale(rows["Total Assets"], scale_div)
+    ca = _apply_scale(rows["Current Assets"], scale_div)
+    nca = _apply_scale(rows["Non-Current Assets"], scale_div)
+    tl = _apply_scale(rows["Total Liabilities"], scale_div)
+    cl = _apply_scale(rows["Current Liabilities"], scale_div)
+    ncl = _apply_scale(rows["Non-Current Liabilities"], scale_div)
+    eq = _apply_scale(rows["Total Equity"], scale_div)
+    cash = _apply_scale(rows["Cash & ST Investments"], scale_div)
+    cdebt = _apply_scale(rows["Current Debt"], scale_div)
+    ltdebt = _apply_scale(rows["Long-Term Debt"], scale_div)
+    debt = _apply_scale(rows["Total Debt"], scale_div)
+    gw = _apply_scale(rows["Goodwill"], scale_div)
+    intang = _apply_scale(rows["Intangible Assets"], scale_div)
 
     net_debt = [
         (debt[i] - cash[i]) if (debt[i] is not None and cash[i] is not None) else None
@@ -327,7 +337,6 @@ def _create_bs_sheet(wb, bs_data, company_name, exchange, ticker, currency, mone
     _write_value_row(ws, row, "  GW / Total Assets", gw_ratio, PCT_FORMAT, is_ratio=True); row += 1
     _write_value_row(ws, row, "Intangible Assets", intang, money_fmt); row += 1
 
-    # Checks
     checks = _build_bs_checks(ta[1], tl[1], eq[1], gw[1])
     _write_checks(ws, row, checks, 3)
 
@@ -350,22 +359,22 @@ def _build_bs_checks(ta, tl, eq, gw):
     return checks
 
 
-def _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, money_fmt):
+def _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label):
     ws = wb.create_sheet("Cash Flow")
     years = cf_data["years"]
     rows = cf_data["rows"]
     title = f"{company_name} ({exchange}: {ticker}) - Cash Flow"
-    _setup_sheet(ws, title, f"All figures in {currency} thousands.", 4)
+    _setup_sheet(ws, title, f"All figures in {currency} {scale_label}.", 4)
     _set_col_widths(ws, label_width=38, value_width=16, num_value_cols=3)
 
-    cfo = [_scale(v) for v in rows["CFO"]]
-    cfi = [_scale(v) for v in rows["CFI"]]
-    cff = [_scale(v) for v in rows["CFF"]]
-    capex = [_scale(v) for v in rows["CapEx"]]
-    fcf = [_scale(v) for v in rows["FCF"]]
-    da = [_scale(v) for v in rows["D&A"]]
-    div = [_scale(v) for v in rows["Dividends Paid"]]
-    bb = [_scale(v) for v in rows["Buybacks"]]
+    cfo = _apply_scale(rows["CFO"], scale_div)
+    cfi = _apply_scale(rows["CFI"], scale_div)
+    cff = _apply_scale(rows["CFF"], scale_div)
+    capex = _apply_scale(rows["CapEx"], scale_div)
+    fcf = _apply_scale(rows["FCF"], scale_div)
+    da = _apply_scale(rows["D&A"], scale_div)
+    div = _apply_scale(rows["Dividends Paid"], scale_div)
+    bb = _apply_scale(rows["Buybacks"], scale_div)
 
     fcf_calc = [
         (cfo[i] - abs(capex[i])) if (cfo[i] is not None and capex[i] is not None) else None
@@ -393,7 +402,6 @@ def _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, mone
     _write_value_row(ws, row, "FCF (yfinance)", fcf, money_fmt); row += 1
     _write_value_row(ws, row, "FCF reconstruit (CFO - |CapEx|)", fcf_calc, money_fmt); row += 1
 
-    # Check
     checks = _build_cf_checks(fcf[2], fcf_calc[2])
     _write_checks(ws, row, checks, 4)
 
@@ -484,7 +492,6 @@ def _create_ratios_sheet(wb, ratios, company_name, exchange, ticker, currency, m
         ws.cell(row=row, column=2).alignment = ALIGN_RIGHT
         row += 1
 
-    # Checks
     checks = _build_ratio_checks(ratios)
     _write_checks(ws, row, checks, 2)
 
