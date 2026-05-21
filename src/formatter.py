@@ -98,3 +98,108 @@ def display_pl(pl_data: dict, currency: str = "") -> None:
 
     if not has_ebitda:
         display(HTML("<p style='font-size:11px; color:#888;'>EBITDA non disponible directement dans income_stmt.</p>"))
+
+def display_balance_sheet(bs_data: dict, currency: str = "") -> None:
+    """Bloc 3 — Balance Sheet N-1, N. Avec checks de cohérence."""
+    years = bs_data["years"]
+    rows = bs_data["rows"]
+
+    def fmt_row(values):
+        return [format_money(v, currency) for v in values]
+
+    def fmt_pct_row(values):
+        return [format_pct(v) for v in values]
+
+    # Calculs dérivés
+    ta = rows["Total Assets"]
+    tl = rows["Total Liabilities"]
+    eq = rows["Total Equity"]
+    cash = rows["Cash & ST Investments"]
+    debt = rows["Total Debt"]
+    gw = rows["Goodwill"]
+
+    # Net Debt = Total Debt - Cash
+    net_debt = [
+        (debt[i] - cash[i]) if (debt[i] is not None and cash[i] is not None) else None
+        for i in range(2)
+    ]
+
+    # Goodwill / Total Assets
+    gw_ratio = [safe_div(gw[i], ta[i]) for i in range(2)]
+
+    table_rows = [
+        ("Total Assets", fmt_row(ta)),
+        ("  Current Assets", fmt_row(rows["Current Assets"])),
+        ("  Non-Current Assets", fmt_row(rows["Non-Current Assets"])),
+        ("Total Liabilities", fmt_row(tl)),
+        ("  Current Liabilities", fmt_row(rows["Current Liabilities"])),
+        ("  Non-Current Liabilities", fmt_row(rows["Non-Current Liabilities"])),
+        ("Total Equity", fmt_row(eq)),
+        ("Cash & ST Investments", fmt_row(cash)),
+        ("Current Debt", fmt_row(rows["Current Debt"])),
+        ("Long-Term Debt", fmt_row(rows["Long-Term Debt"])),
+        ("Total Debt", fmt_row(debt)),
+        ("Net Debt", fmt_row(net_debt)),
+        ("Goodwill", fmt_row(gw)),
+        ("  GW / Total Assets", fmt_pct_row(gw_ratio)),
+        ("Intangible Assets", fmt_row(rows["Intangible Assets"])),
+    ]
+
+    col_labels = [f"N-1 ({years[0]})", f"N ({years[1]})"]
+    df = pd.DataFrame(
+        [vals for _, vals in table_rows],
+        index=[label for label, _ in table_rows],
+        columns=col_labels,
+    )
+
+    display(HTML(f"<h3>Bloc 3 — Balance Sheet ({currency})</h3>"))
+    display(df)
+
+    # Checks de cohérence (sur N)
+    _display_bs_checks(ta[1], tl[1], eq[1], gw[1], currency)
+
+
+def _display_bs_checks(ta, tl, eq, gw, currency: str) -> None:
+    """Checks intra-Bloc 3 sur la dernière année."""
+    checks_html = "<h4 style='margin-top:12px;'>Checks de cohérence (N)</h4><ul style='font-size:13px;'>"
+
+    # Check 1 : A = L + E
+    if ta is not None and tl is not None and eq is not None:
+        sum_le = tl + eq
+        diff_pct = abs(ta - sum_le) / ta if ta != 0 else 0
+        if diff_pct < 0.01:
+            checks_html += (
+                f"<li style='color:green;'>✓ Equation comptable : "
+                f"Total Assets = {format_money(ta, currency)} ≈ "
+                f"L+E = {format_money(sum_le, currency)} "
+                f"(écart {diff_pct*100:.2f}%)</li>"
+            )
+        else:
+            checks_html += (
+                f"<li style='color:red;'>✗ Equation comptable : "
+                f"Total Assets = {format_money(ta, currency)} ≠ "
+                f"L+E = {format_money(sum_le, currency)} "
+                f"(écart {diff_pct*100:.2f}%)</li>"
+            )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ Equation comptable : données manquantes</li>"
+
+    # Check 2 : Goodwill / Total Assets > 40%
+    if gw is not None and ta is not None and ta != 0:
+        gw_ratio = gw / ta
+        if gw_ratio > 0.40:
+            checks_html += (
+                f"<li style='color:red;'>⚠ Goodwill / Total Assets = "
+                f"{gw_ratio*100:.1f}% > 40% (entreprise construite par M&A, "
+                f"risque impairment)</li>"
+            )
+        else:
+            checks_html += (
+                f"<li style='color:green;'>✓ Goodwill / Total Assets = "
+                f"{gw_ratio*100:.1f}% (sous le seuil 40%)</li>"
+            )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ Goodwill / Total Assets : pas de goodwill ou données manquantes</li>"
+
+    checks_html += "</ul>"
+    display(HTML(checks_html))

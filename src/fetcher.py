@@ -65,3 +65,64 @@ def fetch_pl(ticker_obj) -> dict:
             rows[metric] = [series.get(c) for c in cols]
 
     return {"years": years, "rows": rows}
+
+# Mapping Balance Sheet : nom métrique → candidats yfinance
+BS_ROWS = {
+    "Total Assets": ["Total Assets"],
+    "Current Assets": ["Current Assets", "Total Current Assets"],
+    "Non-Current Assets": [
+        "Total Non Current Assets",
+        "Non Current Assets",
+    ],
+    "Total Liabilities": [
+        "Total Liabilities Net Minority Interest",
+        "Total Liabilities",
+    ],
+    "Current Liabilities": ["Current Liabilities", "Total Current Liabilities"],
+    "Non-Current Liabilities": [
+        "Total Non Current Liabilities Net Minority Interest",
+        "Total Non Current Liabilities",
+        "Non Current Liabilities",
+    ],
+    "Total Equity": [
+        "Stockholders Equity",
+        "Total Equity Gross Minority Interest",
+        "Common Stock Equity",
+    ],
+    "Cash & ST Investments": [
+        "Cash Cash Equivalents And Short Term Investments",
+        "Cash And Cash Equivalents",
+    ],
+    "Current Debt": ["Current Debt", "Current Debt And Capital Lease Obligation"],
+    "Long-Term Debt": [
+        "Long Term Debt",
+        "Long Term Debt And Capital Lease Obligation",
+    ],
+    "Total Debt": ["Total Debt"],
+    "Goodwill": ["Goodwill"],
+    "Intangible Assets": ["Other Intangible Assets", "Intangible Assets"],
+}
+
+
+def fetch_balance_sheet(ticker_obj) -> dict:
+    """
+    Bloc 3 — Balance Sheet N-1, N.
+    Retourne dict avec years (2 dates) et rows {metric: [val_N-1, val_N]}.
+    """
+    bs = ticker_obj.balance_sheet
+    if bs is None or bs.empty:
+        raise ValueError("Balance sheet indisponible.")
+
+    # 2 dernières années, ordre N-1, N
+    cols = bs.columns[:2][::-1]
+    years = [c.year for c in cols]
+
+    rows = {}
+    for metric, candidates in BS_ROWS.items():
+        series = find_row(bs, candidates)
+        if series is None:
+            rows[metric] = [None, None]
+        else:
+            rows[metric] = [series.get(c) for c in cols]
+
+    return {"years": years, "rows": rows}
