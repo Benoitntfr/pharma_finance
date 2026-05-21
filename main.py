@@ -1,8 +1,13 @@
 import sys
 
 from src.validator import validate_ticker
-from src.fetcher import fetch_identity, fetch_pl, fetch_balance_sheet
-from src.formatter import display_identity, display_pl, display_balance_sheet
+from src.fetcher import fetch_identity, fetch_pl, fetch_balance_sheet, fetch_cash_flow
+from src.formatter import (
+    display_identity,
+    display_pl,
+    display_balance_sheet,
+    display_cash_flow,
+)
 
 
 def run_analysis(ticker: str) -> None:
@@ -34,6 +39,13 @@ def run_analysis(ticker: str) -> None:
         display_balance_sheet(bs_data, currency)
     except Exception as e:
         print(f"⚠️ Bloc 3 (Balance Sheet) failed: {e}")
+
+    # Bloc 4 — Cash Flow 3Y
+    try:
+        cf_data = fetch_cash_flow(ticker_obj)
+        display_cash_flow(cf_data, currency)
+    except Exception as e:
+        print(f"⚠️ Bloc 4 (Cash Flow) failed: {e}")
 
 
 def in_jupyter() -> bool:

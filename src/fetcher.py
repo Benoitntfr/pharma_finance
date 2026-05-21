@@ -126,3 +126,42 @@ def fetch_balance_sheet(ticker_obj) -> dict:
             rows[metric] = [series.get(c) for c in cols]
 
     return {"years": years, "rows": rows}
+
+# Mapping Cash Flow : nom métrique → candidats yfinance
+CF_ROWS = {
+    "CFO": ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"],
+    "CFI": ["Investing Cash Flow", "Cash Flow From Continuing Investing Activities"],
+    "CFF": ["Financing Cash Flow", "Cash Flow From Continuing Financing Activities"],
+    "CapEx": ["Capital Expenditure", "Capital Expenditures"],
+    "FCF": ["Free Cash Flow"],
+    "D&A": [
+        "Depreciation And Amortization",
+        "Depreciation Amortization Depletion",
+        "Reconciled Depreciation",
+    ],
+    "Dividends Paid": ["Cash Dividends Paid", "Common Stock Dividend Paid"],
+    "Buybacks": [
+        "Repurchase Of Capital Stock",
+        "Common Stock Payments",
+    ],
+}
+
+
+def fetch_cash_flow(ticker_obj) -> dict:
+    """Bloc 4 — Cash Flow 3Y. Retourne dict avec years (3 dates) et rows."""
+    cf = ticker_obj.cashflow
+    if cf is None or cf.empty:
+        raise ValueError("Cash flow statement indisponible.")
+
+    cols = cf.columns[:3][::-1]
+    years = [c.year for c in cols]
+
+    rows = {}
+    for metric, candidates in CF_ROWS.items():
+        series = find_row(cf, candidates)
+        if series is None:
+            rows[metric] = [None, None, None]
+        else:
+            rows[metric] = [series.get(c) for c in cols]
+
+    return {"years": years, "rows": rows}

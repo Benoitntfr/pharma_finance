@@ -203,3 +203,78 @@ def _display_bs_checks(ta, tl, eq, gw, currency: str) -> None:
 
     checks_html += "</ul>"
     display(HTML(checks_html))
+
+def display_cash_flow(cf_data: dict, currency: str = "") -> None:
+    """Bloc 4 — Cash Flow 3Y. Avec check FCF reconstruit."""
+    years = cf_data["years"]
+    rows = cf_data["rows"]
+
+    def fmt_row(values):
+        return [format_money(v, currency) for v in values]
+
+    cfo = rows["CFO"]
+    cfi = rows["CFI"]
+    cff = rows["CFF"]
+    capex = rows["CapEx"]
+    fcf = rows["FCF"]
+    da = rows["D&A"]
+    div = rows["Dividends Paid"]
+    bb = rows["Buybacks"]
+
+    # FCF reconstruit = CFO - |CapEx|
+    fcf_calc = [
+        (cfo[i] - abs(capex[i])) if (cfo[i] is not None and capex[i] is not None) else None
+        for i in range(3)
+    ]
+
+    table_rows = [
+        ("CFO (Operating)", fmt_row(cfo)),
+        ("CFI (Investing)", fmt_row(cfi)),
+        ("CFF (Financing)", fmt_row(cff)),
+        ("CapEx", fmt_row(capex)),
+        ("D&A", fmt_row(da)),
+        ("FCF (yfinance)", fmt_row(fcf)),
+        ("FCF reconstruit (CFO - |CapEx|)", fmt_row(fcf_calc)),
+        ("Dividends Paid", fmt_row(div)),
+        ("Buybacks", fmt_row(bb)),
+    ]
+
+    col_labels = [f"N-2 ({years[0]})", f"N-1 ({years[1]})", f"N ({years[2]})"]
+    df = pd.DataFrame(
+        [vals for _, vals in table_rows],
+        index=[label for label, _ in table_rows],
+        columns=col_labels,
+    )
+
+    display(HTML(f"<h3>Bloc 4 — Cash Flow 3Y ({currency})</h3>"))
+    display(df)
+
+    # Check FCF reconstruit vs yfinance sur N
+    _display_cf_checks(fcf[2], fcf_calc[2], currency)
+
+
+def _display_cf_checks(fcf_yf, fcf_calc, currency: str) -> None:
+    """Check intra-Bloc 4 sur la dernière année."""
+    checks_html = "<h4 style='margin-top:12px;'>Checks de cohérence (N)</h4><ul style='font-size:13px;'>"
+
+    if fcf_yf is not None and fcf_calc is not None:
+        diff_pct = abs(fcf_yf - fcf_calc) / abs(fcf_yf) if fcf_yf != 0 else 0
+        if diff_pct < 0.01:
+            checks_html += (
+                f"<li style='color:green;'>✓ FCF yfinance "
+                f"({format_money(fcf_yf, currency)}) ≈ "
+                f"FCF reconstruit ({format_money(fcf_calc, currency)}) "
+                f"(écart {diff_pct*100:.2f}%)</li>"
+            )
+        else:
+            checks_html += (
+                f"<li style='color:orange;'>⚠ FCF yfinance "
+                f"({format_money(fcf_yf, currency)}) ≠ "
+                f"FCF reconstruit ({format_money(fcf_calc, currency)}) "
+                f"(écart {diff_pct*100:.2f}%) - yfinance peut inclure d'autres ajustements</li>"
+            )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ FCF check : données manquantes</li>"
+
+    checks_html += "</ul>"
+    display(HTML(checks_html))
