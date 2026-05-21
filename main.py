@@ -25,40 +25,9 @@ def in_jupyter() -> bool:
     return "ipykernel" in sys.modules
 
 
-def main_jupyter() -> None:
-    # Activer widgets Colab AVANT tout import ipywidgets
-    try:
-        from google.colab import output
-        output.enable_custom_widget_manager()
-    except ImportError:
-        pass
-
-    import ipywidgets as widgets
-    from IPython.display import display, clear_output
-
-    ticker_input = widgets.Text(
-        value="",
-        placeholder="Ex: TEM",
-        description="Ticker:",
-    )
-    run_button = widgets.Button(description="Run", button_style="primary")
-    output_area = widgets.Output()
-
-    def on_run(_):
-        with output_area:
-            clear_output()
-            run_analysis(ticker_input.value)
-
-    run_button.on_click(on_run)
-    display(ticker_input, run_button, output_area)
-
-
-def main_cli() -> None:
+if in_jupyter():
+    ticker = input("Ticker : ").strip()
+    run_analysis(ticker)
+elif __name__ == "__main__":
     ticker = sys.argv[1] if len(sys.argv) > 1 else input("Ticker : ")
     run_analysis(ticker)
-
-
-if in_jupyter():
-    main_jupyter()
-elif __name__ == "__main__":
-    main_cli()
