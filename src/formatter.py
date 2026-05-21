@@ -278,3 +278,95 @@ def _display_cf_checks(fcf_yf, fcf_calc, currency: str) -> None:
 
     checks_html += "</ul>"
     display(HTML(checks_html))
+
+def display_ratios(ratios: dict, currency: str = "") -> None:
+    """Bloc 5 — Ratios dérivés + checks cross-bloc."""
+    years = ratios["years"]
+
+    def fmt_pct_or_na(v):
+        return format_pct(v) if v is not None else "N/A"
+
+    def fmt_ratio_or_na(v, nm_flag=False):
+        if nm_flag:
+            return "N/M"
+        if v is None:
+            return "N/A"
+        return f"{v:.2f}x"
+
+    # Lignes ratios
+    rows = [
+        ("Revenue CAGR 3Y", fmt_pct_or_na(ratios["cagr"])),
+        (
+            f"R&D / Revenue ({years[0]} → {years[2]})",
+            " → ".join(fmt_pct_or_na(v) for v in ratios["rd_trend"]),
+        ),
+        (
+            f"EBIT margin ({years[0]} → {years[2]})",
+            " → ".join(fmt_pct_or_na(v) for v in ratios["ebit_trend"]),
+        ),
+        (
+            "FCF / Net Income (N)",
+            fmt_ratio_or_na(ratios["fcf_conv"], ratios["fcf_conv_nm"]),
+        ),
+        (
+            "Net Debt / EBITDA (N)",
+            fmt_ratio_or_na(ratios["nd_ebitda"], ratios["nd_ebitda_nm"]),
+        ),
+        ("Goodwill / Total Assets (N)", fmt_pct_or_na(ratios["gw_ta"])),
+    ]
+
+    df = pd.DataFrame(rows, columns=["Ratio", "Value"])
+
+    display(HTML("<h3>Bloc 5 — Ratios dérivés</h3>"))
+    display(df.style.hide(axis="index"))
+
+    # Checks cross-bloc
+    _display_ratio_checks(ratios, currency)
+
+
+def _display_ratio_checks(r: dict, currency: str) -> None:
+    """Checks cross-bloc : EV reconstruit, EV/Rev, EV/EBITDA."""
+    checks_html = "<h4 style='margin-top:12px;'>Checks cross-bloc (N)</h4><ul style='font-size:13px;'>"
+
+    # Check 1 : EV reconstruit vs EV info
+    if r["ev_calc"] is not None and r["ev_info"] is not None:
+        diff_pct = abs(r["ev_calc"] - r["ev_info"]) / r["ev_info"] if r["ev_info"] != 0 else 0
+        color = "green" if diff_pct < 0.05 else "orange"
+        symbol = "✓" if diff_pct < 0.05 else "⚠"
+        checks_html += (
+            f"<li style='color:{color};'>{symbol} EV reconstruit "
+            f"({format_money(r['ev_calc'], currency)}) "
+            f"vs EV yfinance ({format_money(r['ev_info'], currency)}) "
+            f": écart {diff_pct*100:.1f}%</li>"
+        )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ EV check : données manquantes</li>"
+
+    # Check 2 : EV/Revenue calculé vs info
+    if r["ev_rev_calc"] is not None and r["ev_rev_info"] is not None:
+        diff_pct = abs(r["ev_rev_calc"] - r["ev_rev_info"]) / r["ev_rev_info"] if r["ev_rev_info"] != 0 else 0
+        color = "green" if diff_pct < 0.05 else "orange"
+        symbol = "✓" if diff_pct < 0.05 else "⚠"
+        checks_html += (
+            f"<li style='color:{color};'>{symbol} EV/Revenue calculé "
+            f"({r['ev_rev_calc']:.2f}x) vs yfinance ({r['ev_rev_info']:.2f}x) "
+            f": écart {diff_pct*100:.1f}%</li>"
+        )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ EV/Revenue check : données manquantes</li>"
+
+    # Check 3 : EV/EBITDA calculé vs info
+    if r["ev_ebitda_calc"] is not None and r["ev_ebitda_info"] is not None:
+        diff_pct = abs(r["ev_ebitda_calc"] - r["ev_ebitda_info"]) / r["ev_ebitda_info"] if r["ev_ebitda_info"] != 0 else 0
+        color = "green" if diff_pct < 0.05 else "orange"
+        symbol = "✓" if diff_pct < 0.05 else "⚠"
+        checks_html += (
+            f"<li style='color:{color};'>{symbol} EV/EBITDA calculé "
+            f"({r['ev_ebitda_calc']:.2f}x) vs yfinance ({r['ev_ebitda_info']:.2f}x) "
+            f": écart {diff_pct*100:.1f}%</li>"
+        )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ EV/EBITDA check : EBITDA négatif ou données manquantes</li>"
+
+    checks_html += "</ul>"
+    display(HTML(checks_html))
