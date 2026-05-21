@@ -1,4 +1,4 @@
-yfinance>=0.2.50
+yfinance>=0.2.66
 pandas>=2.0
 requests>=2.31
 ipywidgets>=8.0
