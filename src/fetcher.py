@@ -17,3 +17,51 @@ def fetch_identity(info: dict) -> dict:
         "financial_currency": safe_get(info, "financialCurrency"),
         "summary": safe_get(info, "longBusinessSummary"),
     }
+
+import yfinance as yf
+from src.utils import find_row, get_col_value, safe_div
+
+
+# Mapping des lignes P&L : nom métrique → liste de candidats yfinance
+PL_ROWS = {
+    "Revenue": ["Total Revenue"],
+    "COGS": ["Cost Of Revenue"],
+    "Gross Profit": ["Gross Profit"],
+    "R&D": ["Research And Development", "Research Development"],
+    "SG&A": [
+        "Selling General And Administration",
+        "Selling General And Administrative Expense",
+        "Selling General And Administrative",
+    ],
+    "EBIT": ["Operating Income", "EBIT"],
+    "EBITDA": ["EBITDA"],
+    "Net Income": ["Net Income", "Net Income Common Stockholders"],
+}
+
+
+def fetch_pl(ticker_obj) -> dict:
+    """
+    Bloc 2 — P&L 3Y.
+    Retourne dict avec :
+    - 'years' : liste de 3 dates (les 3 plus récentes)
+    - 'rows' : dict {metric_name: [val_N-2, val_N-1, val_N]}
+    """
+    income_stmt = ticker_obj.income_stmt
+    if income_stmt is None or income_stmt.empty:
+        raise ValueError("Income statement indisponible.")
+
+    # yfinance ordonne les colonnes de la plus récente à la plus ancienne
+    # On prend les 3 premières (= 3 dernières années), puis on inverse pour N-2, N-1, N
+    cols = income_stmt.columns[:3][::-1]
+    years = [c.year for c in cols]
+
+    rows = {}
+    for metric, candidates in PL_ROWS.items():
+        series = find_row(income_stmt, candidates)
+        if series is None:
+            rows[metric] = [None, None, None]
+        else:
+            # Réordonner selon cols (inversé)
+            rows[metric] = [series.get(c) for c in cols]
+
+    return {"years": years, "rows": rows}

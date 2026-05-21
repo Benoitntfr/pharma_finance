@@ -39,3 +39,25 @@ def format_pct(value) -> str:
     if value is None or pd.isna(value):
         return "N/A"
     return f"{value * 100:.1f}%" if abs(value) < 10 else f"{value:.1f}%"
+
+
+def format_value(value, currency: str = "") -> str:
+    """Alias de format_money pour cohérence des appels."""
+    return format_money(value, currency)
+
+
+def safe_div(num, denom):
+    """Division sûre, retourne None si denom est None/0/NaN."""
+    if num is None or denom is None or pd.isna(num) or pd.isna(denom) or denom == 0:
+        return None
+    return num / denom
+
+
+def get_col_value(series, col_idx: int):
+    """Récupère la valeur à l'index colonne donné dans une pandas Series, None si erreur."""
+    if series is None:
+        return None
+    try:
+        return series.iloc[col_idx]
+    except (IndexError, KeyError):
+        return None

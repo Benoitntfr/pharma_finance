@@ -1,14 +1,13 @@
 import sys
 
 from src.validator import validate_ticker
-from src.fetcher import fetch_identity
-from src.formatter import display_identity
+from src.fetcher import fetch_identity, fetch_pl
+from src.formatter import display_identity, display_pl
 
 
 def run_analysis(ticker: str) -> None:
-    """Pipeline complet : validate → fetch → display."""
     try:
-        info = validate_ticker(ticker)
+        ticker_obj, info = validate_ticker(ticker)
     except Exception as e:
         print(f"❌ {e}")
         return
@@ -19,6 +18,14 @@ def run_analysis(ticker: str) -> None:
         display_identity(identity)
     except Exception as e:
         print(f"⚠️ Bloc 1 (Identity) failed: {e}")
+
+    # Bloc 2 — P&L 3Y
+    try:
+        currency = info.get("financialCurrency") or info.get("currency") or ""
+        pl_data = fetch_pl(ticker_obj)
+        display_pl(pl_data, currency)
+    except Exception as e:
+        print(f"⚠️ Bloc 2 (P&L 3Y) failed: {e}")
 
 
 def in_jupyter() -> bool:
