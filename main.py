@@ -26,25 +26,31 @@ def in_jupyter() -> bool:
 
 
 def main_jupyter() -> None:
+    # Activer widgets Colab AVANT tout import ipywidgets
     try:
         from google.colab import output
         output.enable_custom_widget_manager()
     except ImportError:
-        pass  # pas sur Colab, OK
+        pass
+
     import ipywidgets as widgets
     from IPython.display import display, clear_output
 
-    ticker_input = widgets.Text(placeholder="Ex: TEM", description="Ticker:")
+    ticker_input = widgets.Text(
+        value="",
+        placeholder="Ex: TEM",
+        description="Ticker:",
+    )
     run_button = widgets.Button(description="Run", button_style="primary")
-    output = widgets.Output()
+    output_area = widgets.Output()
 
     def on_run(_):
-        with output:
+        with output_area:
             clear_output()
             run_analysis(ticker_input.value)
 
     run_button.on_click(on_run)
-    display(ticker_input, run_button, output)
+    display(ticker_input, run_button, output_area)
 
 
 def main_cli() -> None:
