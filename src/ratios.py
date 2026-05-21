@@ -74,6 +74,52 @@ def compute_ratios(info: dict, pl_data: dict, bs_data: dict, cf_data: dict) -> d
         ev_ebitda_calc = ev_calc / ebitda[2]
     ev_ebitda_info = info.get("enterpriseToEbitda")
 
+    # ROIC = EBIT × (1 - tax_rate) / Capital Employé moyen
+    # Capital Employé = Equity + Net Debt
+    eq_n = bs_data["rows"]["Total Equity"][1]
+    eq_nm1 = bs_data["rows"]["Total Equity"][0]
+    debt_nm1 = bs_data["rows"]["Total Debt"][0]
+    cash_nm1 = bs_data["rows"]["Cash & ST Investments"][0]
+
+    net_debt_n = (debt_n - cash_n) if (debt_n is not None and cash_n is not None) else None
+    net_debt_nm1 = (debt_nm1 - cash_nm1) if (debt_nm1 is not None and cash_nm1 is not None) else None
+
+    cap_employed_n = (eq_n + net_debt_n) if (eq_n is not None and net_debt_n is not None) else None
+    cap_employed_nm1 = (eq_nm1 + net_debt_nm1) if (eq_nm1 is not None and net_debt_nm1 is not None) else None
+    cap_employed_avg = (
+        (cap_employed_n + cap_employed_nm1) / 2
+        if (cap_employed_n is not None and cap_employed_nm1 is not None)
+        else None
+    )
+
+    # Tax rate effectif avec fallback
+    tax_prov_n = pl_data["rows"]["Tax Provision"][2]
+    pretax_n = pl_data["rows"]["Pretax Income"][2]
+    tax_rate = None
+    tax_rate_source = "N/A"
+    if tax_prov_n is not None and pretax_n is not None and pretax_n != 0:
+        tax_rate_calc = tax_prov_n / pretax_n
+        if 0 <= tax_rate_calc <= 0.5:
+            tax_rate = tax_rate_calc
+            tax_rate_source = "effective"
+        else:
+            tax_rate = 0.25
+            tax_rate_source = "fallback 25% (effective aberrant)"
+    else:
+        tax_rate = 0.25
+        tax_rate_source = "fallback 25% (données manquantes)"
+
+    # ROIC
+    roic = None
+    roic_nm = False
+    if ebit[2] is None or ebit[2] <= 0:
+        roic_nm = True
+    elif cap_employed_avg is None or cap_employed_avg <= 0:
+        roic_nm = True
+    else:
+        nopat = ebit[2] * (1 - tax_rate)
+        roic = nopat / cap_employed_avg
+
     return {
         "cagr": cagr,
         "rd_trend": rd_trend,
@@ -90,4 +136,8 @@ def compute_ratios(info: dict, pl_data: dict, bs_data: dict, cf_data: dict) -> d
         "ev_ebitda_calc": ev_ebitda_calc,
         "ev_ebitda_info": ev_ebitda_info,
         "years": pl_data["years"],
+        "roic": roic,
+        "roic_nm": roic_nm,
+        "tax_rate": tax_rate,
+        "tax_rate_source": tax_rate_source,
     }

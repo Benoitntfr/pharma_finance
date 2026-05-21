@@ -460,10 +460,12 @@ def _create_ratios_sheet(wb, ratios, company_name, exchange, ticker, currency, m
         row += 1
 
     _write_section_header(ws, row, "Capital structure & cash generation", 2); row += 1
+    roic_str = "N/M" if ratios["roic_nm"] else fmt_pct(ratios["roic"])
     pairs = [
         ("FCF / Net Income (N)", fmt_ratio(ratios["fcf_conv"], ratios["fcf_conv_nm"])),
         ("Net Debt / EBITDA (N)", fmt_ratio(ratios["nd_ebitda"], ratios["nd_ebitda_nm"])),
         ("Goodwill / Total Assets (N)", fmt_pct(ratios["gw_ta"])),
+        (f"ROIC (N) — tax {ratios['tax_rate_source']}", roic_str),
     ]
     for label, value in pairs:
         ws.cell(row=row, column=1, value=label).font = FONT_VALUE

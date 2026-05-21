@@ -36,6 +36,8 @@ PL_ROWS = {
     "EBIT": ["Operating Income", "EBIT"],
     "EBITDA": ["EBITDA"],
     "Net Income": ["Net Income", "Net Income Common Stockholders"],
+    "Tax Provision": ["Tax Provision", "Income Tax Expense"],
+    "Pretax Income": ["Pretax Income", "Income Before Tax"],
 }
 
 

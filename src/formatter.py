@@ -313,6 +313,10 @@ def display_ratios(ratios: dict, currency: str = "") -> None:
             fmt_ratio_or_na(ratios["nd_ebitda"], ratios["nd_ebitda_nm"]),
         ),
         ("Goodwill / Total Assets (N)", fmt_pct_or_na(ratios["gw_ta"])),
+        (
+            f"ROIC (N) — tax {ratios['tax_rate_source']}",
+            "N/M" if ratios["roic_nm"] else fmt_pct_or_na(ratios["roic"]),
+        ),
     ]
 
     df = pd.DataFrame(rows, columns=["Ratio", "Value"])
