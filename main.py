@@ -26,6 +26,11 @@ def in_jupyter() -> bool:
 
 
 def main_jupyter() -> None:
+    try:
+        from google.colab import output
+        output.enable_custom_widget_manager()
+    except ImportError:
+        pass  # pas sur Colab, OK
     import ipywidgets as widgets
     from IPython.display import display, clear_output
 
