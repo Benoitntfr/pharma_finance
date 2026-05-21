@@ -8,4 +8,4 @@ data/
 venv/
 .venv/
 env/
-exports/
+exports/*.zip
