@@ -131,21 +131,99 @@ def fetch_balance_sheet(ticker_obj) -> dict:
 
 # Mapping Cash Flow : nom métrique → candidats yfinance
 CF_ROWS = {
-    "CFO": ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"],
-    "CFI": ["Investing Cash Flow", "Cash Flow From Continuing Investing Activities"],
-    "CFF": ["Financing Cash Flow", "Cash Flow From Continuing Financing Activities"],
-    "CapEx": ["Capital Expenditure", "Capital Expenditures"],
-    "FCF": ["Free Cash Flow"],
+    # Point de départ
+    "Net Income": [
+        "Net Income From Continuing Operations",
+        "Net Income",
+        "Net Income Common Stockholders",
+    ],
+    # Non-cash adjustments
     "D&A": [
         "Depreciation And Amortization",
         "Depreciation Amortization Depletion",
         "Reconciled Depreciation",
     ],
-    "Dividends Paid": ["Cash Dividends Paid", "Common Stock Dividend Paid"],
+    "Stock-Based Compensation": ["Stock Based Compensation"],
+    "Deferred Taxes": ["Deferred Income Tax", "Deferred Tax"],
+    "Other Non-Cash": [
+        "Other Non Cash Items",
+        "Asset Impairment Charge",
+    ],
+    # Working capital
+    "Δ Receivables": ["Change In Receivables", "Changes In Account Receivables"],
+    "Δ Inventory": ["Change In Inventory"],
+    "Δ Payables": ["Change In Payable", "Change In Payables And Accrued Expense"],
+    "Δ Other WC": ["Change In Other Working Capital"],
+    "Total Δ WC": ["Change In Working Capital"],
+    # Sous-totaux
+    "CFO": [
+        "Operating Cash Flow",
+        "Cash Flow From Continuing Operating Activities",
+    ],
+    # Investing - CapEx
+    "CapEx": ["Capital Expenditure", "Capital Expenditures"],
+    # Investing - M&A
+    "Acquisitions": ["Purchase Of Business", "Net Business Purchase And Sale"],
+    "Divestitures": ["Sale Of Business"],
+    "Net M&A": ["Net Business Purchase And Sale"],
+    # Investing - Investments
+    "Purchase Of Investments": ["Purchase Of Investment"],
+    "Sale Of Investments": ["Sale Of Investment", "Sale Maturity Of Investment"],
+    "Net Investments": ["Net Investment Purchase And Sale"],
+    "Other Investing": ["Other Investing Activites", "Other Investing Activities"],
+    # Sous-total Investing
+    "CFI": [
+        "Investing Cash Flow",
+        "Cash Flow From Continuing Investing Activities",
+    ],
+    # Financing - Debt
+    "Debt Issued": [
+        "Long Term Debt Issuance",
+        "Issuance Of Debt",
+    ],
+    "Debt Repaid": [
+        "Long Term Debt Payments",
+        "Repayment Of Debt",
+    ],
+    "Net Debt Change": [
+        "Net Issuance Payments Of Debt",
+        "Net Long Term Debt Issuance",
+    ],
+    # Financing - Equity
+    "Equity Issued": [
+        "Issuance Of Capital Stock",
+        "Common Stock Issuance",
+    ],
     "Buybacks": [
         "Repurchase Of Capital Stock",
         "Common Stock Payments",
     ],
+    "Net Common Stock Issuance": ["Net Common Stock Issuance"],
+    # Financing - Distributions
+    "Dividends Paid": ["Cash Dividends Paid", "Common Stock Dividend Paid"],
+    "Other Financing": [
+        "Other Financing Activities",
+        "Other Financing Charges",
+    ],
+    # Sous-total Financing
+    "CFF": [
+        "Financing Cash Flow",
+        "Cash Flow From Continuing Financing Activities",
+    ],
+    # FX + Net change
+    "FX Effect": [
+        "Effect Of Exchange Rate Changes",
+        "Effect Of Exchange Rate Changes On Cash",
+    ],
+    "Net Change In Cash": [
+        "Changes In Cash",
+        "Change In Cash",
+    ],
+    # Reconciliation
+    "Beginning Cash": ["Beginning Cash Position"],
+    "Ending Cash": ["End Cash Position"],
+    # Maintien FCF yfinance pour check existant
+    "FCF": ["Free Cash Flow"],
 }
 
 

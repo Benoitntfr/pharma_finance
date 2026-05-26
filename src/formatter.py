@@ -204,39 +204,120 @@ def _display_bs_checks(ta, tl, eq, gw, currency: str) -> None:
     checks_html += "</ul>"
     display(HTML(checks_html))
 
+
 def display_cash_flow(cf_data: dict, currency: str = "") -> None:
-    """Bloc 4 — Cash Flow 3Y. Avec check FCF reconstruit."""
+    """Bloc 4 — Cash Flow 3Y structuré : Start → CFO → CFI → CFF → Net Change."""
     years = cf_data["years"]
     rows = cf_data["rows"]
 
     def fmt_row(values):
         return [format_money(v, currency) for v in values]
 
-    cfo = rows["CFO"]
-    cfi = rows["CFI"]
-    cff = rows["CFF"]
-    capex = rows["CapEx"]
-    fcf = rows["FCF"]
-    da = rows["D&A"]
-    div = rows["Dividends Paid"]
-    bb = rows["Buybacks"]
+    # Helpers d'agrégation
+    def sum_row(*lists):
+        """Somme position par position, en ignorant les None."""
+        result = []
+        for i in range(3):
+            vals = [lst[i] for lst in lists if lst[i] is not None]
+            result.append(sum(vals) if vals else None)
+        return result
 
-    # FCF reconstruit = CFO - |CapEx|
+    ni = rows["Net Income"]
+    da = rows["D&A"]
+    sbc = rows["Stock-Based Compensation"]
+    def_tax = rows["Deferred Taxes"]
+    other_nc = rows["Other Non-Cash"]
+    d_rec = rows["Δ Receivables"]
+    d_inv = rows["Δ Inventory"]
+    d_pay = rows["Δ Payables"]
+    d_other_wc = rows["Δ Other WC"]
+    total_d_wc = rows["Total Δ WC"]
+    cfo = rows["CFO"]
+
+    capex = rows["CapEx"]
+    acq = rows["Acquisitions"]
+    div_st = rows["Divestitures"]
+    net_ma = rows["Net M&A"]
+    pinv = rows["Purchase Of Investments"]
+    sinv = rows["Sale Of Investments"]
+    net_inv = rows["Net Investments"]
+    other_inv = rows["Other Investing"]
+    cfi = rows["CFI"]
+
+    debt_iss = rows["Debt Issued"]
+    debt_rep = rows["Debt Repaid"]
+    net_debt = rows["Net Debt Change"]
+    eq_iss = rows["Equity Issued"]
+    bb = rows["Buybacks"]
+    net_cs = rows["Net Common Stock Issuance"]
+    div = rows["Dividends Paid"]
+    other_fin = rows["Other Financing"]
+    cff = rows["CFF"]
+
+    fx = rows["FX Effect"]
+    net_change = rows["Net Change In Cash"]
+    beg_cash = rows["Beginning Cash"]
+    end_cash = rows["Ending Cash"]
+    fcf = rows["FCF"]
+
+    # FCF reconstruit
     fcf_calc = [
         (cfo[i] - abs(capex[i])) if (cfo[i] is not None and capex[i] is not None) else None
         for i in range(3)
     ]
 
     table_rows = [
-        ("CFO (Operating)", fmt_row(cfo)),
-        ("CFI (Investing)", fmt_row(cfi)),
-        ("CFF (Financing)", fmt_row(cff)),
-        ("CapEx", fmt_row(capex)),
-        ("D&A", fmt_row(da)),
-        ("FCF (yfinance)", fmt_row(fcf)),
-        ("FCF reconstruit (CFO - |CapEx|)", fmt_row(fcf_calc)),
-        ("Dividends Paid", fmt_row(div)),
-        ("Buybacks", fmt_row(bb)),
+        ("Net Income", fmt_row(ni)),
+        ("", ["", "", ""]),
+        ("Non-cash adjustments", ["", "", ""]),
+        ("  D&A", fmt_row(da)),
+        ("  Stock-Based Compensation", fmt_row(sbc)),
+        ("  Deferred Taxes", fmt_row(def_tax)),
+        ("  Other Non-Cash", fmt_row(other_nc)),
+        ("Working Capital", ["", "", ""]),
+        ("  Δ Receivables", fmt_row(d_rec)),
+        ("  Δ Inventory", fmt_row(d_inv)),
+        ("  Δ Payables", fmt_row(d_pay)),
+        ("  Δ Other WC", fmt_row(d_other_wc)),
+        ("  Total Δ WC", fmt_row(total_d_wc)),
+        ("CFO (Operating Cash Flow)", fmt_row(cfo)),
+        ("", ["", "", ""]),
+        ("Capital expenditure", ["", "", ""]),
+        ("  CapEx", fmt_row(capex)),
+        ("Acquisitions & divestitures", ["", "", ""]),
+        ("  Acquisitions", fmt_row(acq)),
+        ("  Divestitures", fmt_row(div_st)),
+        ("  Net M&A", fmt_row(net_ma)),
+        ("Investment activities", ["", "", ""]),
+        ("  Purchase of investments", fmt_row(pinv)),
+        ("  Sale/maturity of investments", fmt_row(sinv)),
+        ("  Net investments", fmt_row(net_inv)),
+        ("  Other investing", fmt_row(other_inv)),
+        ("CFI (Investing Cash Flow)", fmt_row(cfi)),
+        ("", ["", "", ""]),
+        ("Debt activity", ["", "", ""]),
+        ("  Debt issued", fmt_row(debt_iss)),
+        ("  Debt repaid", fmt_row(debt_rep)),
+        ("  Net debt change", fmt_row(net_debt)),
+        ("Equity activity", ["", "", ""]),
+        ("  Equity issued", fmt_row(eq_iss)),
+        ("  Buybacks", fmt_row(bb)),
+        ("  Net common stock", fmt_row(net_cs)),
+        ("Distributions", ["", "", ""]),
+        ("  Dividends paid", fmt_row(div)),
+        ("Other financing", fmt_row(other_fin)),
+        ("CFF (Financing Cash Flow)", fmt_row(cff)),
+        ("", ["", "", ""]),
+        ("FX effect", fmt_row(fx)),
+        ("Net change in cash", fmt_row(net_change)),
+        ("", ["", "", ""]),
+        ("Reconciliation", ["", "", ""]),
+        ("  Beginning cash", fmt_row(beg_cash)),
+        ("  Ending cash", fmt_row(end_cash)),
+        ("", ["", "", ""]),
+        ("Free Cash Flow", ["", "", ""]),
+        ("  FCF (yfinance)", fmt_row(fcf)),
+        ("  FCF reconstruit (CFO - |CapEx|)", fmt_row(fcf_calc)),
     ]
 
     col_labels = [f"N-2 ({years[0]})", f"N-1 ({years[1]})", f"N ({years[2]})"]
@@ -249,32 +330,90 @@ def display_cash_flow(cf_data: dict, currency: str = "") -> None:
     display(HTML(f"<h3>Bloc 4 — Cash Flow 3Y ({currency})</h3>"))
     display(df)
 
-    # Check FCF reconstruit vs yfinance sur N
-    _display_cf_checks(fcf[2], fcf_calc[2], currency)
+    # Checks
+    _display_cf_checks(cf_data, fcf_calc, currency)
 
 
-def _display_cf_checks(fcf_yf, fcf_calc, currency: str) -> None:
-    """Check intra-Bloc 4 sur la dernière année."""
+def _display_cf_checks(cf_data: dict, fcf_calc: list, currency: str) -> None:
+    """Checks Cash Flow : CFO articulation, FCF reconstruction, Cash reconciliation."""
+    rows = cf_data["rows"]
+    ni = rows["Net Income"][2]
+    da = rows["D&A"][2]
+    sbc = rows["Stock-Based Compensation"][2]
+    def_tax = rows["Deferred Taxes"][2]
+    other_nc = rows["Other Non-Cash"][2]
+    total_d_wc = rows["Total Δ WC"][2]
+    cfo_yf = rows["CFO"][2]
+    fcf_yf = rows["FCF"][2]
+    cfi_n = rows["CFI"][2]
+    cff_n = rows["CFF"][2]
+    fx_n = rows["FX Effect"][2]
+    beg_cash = rows["Beginning Cash"][2]
+    end_cash = rows["Ending Cash"][2]
+
     checks_html = "<h4 style='margin-top:12px;'>Checks de cohérence (N)</h4><ul style='font-size:13px;'>"
 
-    if fcf_yf is not None and fcf_calc is not None:
-        diff_pct = abs(fcf_yf - fcf_calc) / abs(fcf_yf) if fcf_yf != 0 else 0
+    # Check 1 : NI + non-cash + ΔWC ≈ CFO
+    components = [ni, da, sbc, def_tax, other_nc, total_d_wc]
+    known = [v for v in components if v is not None]
+    if cfo_yf is not None and len(known) >= 3:
+        sum_known = sum(known)
+        diff_pct = abs(cfo_yf - sum_known) / abs(cfo_yf) if cfo_yf != 0 else 0
+        if diff_pct < 0.05:
+            checks_html += (
+                f"<li style='color:green;'>✓ CFO articulation : NI + ajustements ≈ CFO "
+                f"(écart {diff_pct*100:.1f}%)</li>"
+            )
+        else:
+            checks_html += (
+                f"<li style='color:orange;'>⚠ CFO articulation : "
+                f"somme connue = {format_money(sum_known, currency)} vs CFO yf = "
+                f"{format_money(cfo_yf, currency)} "
+                f"(écart {diff_pct*100:.1f}% — lignes 'Other' non détaillées par yfinance)</li>"
+            )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ CFO articulation : données insuffisantes</li>"
+
+    # Check 2 : FCF reconstruit vs FCF yfinance
+    fcf_calc_n = fcf_calc[2]
+    if fcf_yf is not None and fcf_calc_n is not None:
+        diff_pct = abs(fcf_yf - fcf_calc_n) / abs(fcf_yf) if fcf_yf != 0 else 0
         if diff_pct < 0.01:
             checks_html += (
-                f"<li style='color:green;'>✓ FCF yfinance "
-                f"({format_money(fcf_yf, currency)}) ≈ "
-                f"FCF reconstruit ({format_money(fcf_calc, currency)}) "
+                f"<li style='color:green;'>✓ FCF yfinance ≈ FCF reconstruit "
                 f"(écart {diff_pct*100:.2f}%)</li>"
             )
         else:
             checks_html += (
-                f"<li style='color:orange;'>⚠ FCF yfinance "
-                f"({format_money(fcf_yf, currency)}) ≠ "
-                f"FCF reconstruit ({format_money(fcf_calc, currency)}) "
-                f"(écart {diff_pct*100:.2f}%) - yfinance peut inclure d'autres ajustements</li>"
+                f"<li style='color:orange;'>⚠ FCF yfinance vs FCF reconstruit : "
+                f"écart {diff_pct*100:.2f}%</li>"
             )
     else:
         checks_html += "<li style='color:gray;'>⊘ FCF check : données manquantes</li>"
+
+    # Check 3 : Cash reconciliation
+    if (
+        beg_cash is not None and end_cash is not None
+        and cfo_yf is not None and cfi_n is not None and cff_n is not None
+    ):
+        fx_val = fx_n if fx_n is not None else 0
+        calc_end = beg_cash + cfo_yf + cfi_n + cff_n + fx_val
+        diff_pct = abs(calc_end - end_cash) / abs(end_cash) if end_cash != 0 else 0
+        if diff_pct < 0.01:
+            checks_html += (
+                f"<li style='color:green;'>✓ Cash reconciliation : "
+                f"Beg + CFO + CFI + CFF + FX ≈ Ending Cash "
+                f"(écart {diff_pct*100:.2f}%)</li>"
+            )
+        else:
+            checks_html += (
+                f"<li style='color:orange;'>⚠ Cash reconciliation : "
+                f"calcul = {format_money(calc_end, currency)} vs reported = "
+                f"{format_money(end_cash, currency)} "
+                f"(écart {diff_pct*100:.2f}%)</li>"
+            )
+    else:
+        checks_html += "<li style='color:gray;'>⊘ Cash reconciliation : Beginning/Ending Cash absents</li>"
 
     checks_html += "</ul>"
     display(HTML(checks_html))

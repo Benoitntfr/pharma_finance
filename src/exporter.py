@@ -358,23 +358,55 @@ def _build_bs_checks(ta, tl, eq, gw):
             checks.append(("ok", f"✓ Goodwill / Total Assets = {ratio*100:.1f}% (sous 40%)"))
     return checks
 
-
 def _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, money_fmt, scale_div, scale_label):
     ws = wb.create_sheet("Cash Flow")
     years = cf_data["years"]
     rows = cf_data["rows"]
     title = f"{company_name} ({exchange}: {ticker}) - Cash Flow"
     _setup_sheet(ws, title, f"All figures in {currency} {scale_label}.", 4)
-    _set_col_widths(ws, label_width=38, value_width=16, num_value_cols=3)
+    _set_col_widths(ws, label_width=42, value_width=16, num_value_cols=3)
 
-    cfo = _apply_scale(rows["CFO"], scale_div)
-    cfi = _apply_scale(rows["CFI"], scale_div)
-    cff = _apply_scale(rows["CFF"], scale_div)
-    capex = _apply_scale(rows["CapEx"], scale_div)
-    fcf = _apply_scale(rows["FCF"], scale_div)
-    da = _apply_scale(rows["D&A"], scale_div)
-    div = _apply_scale(rows["Dividends Paid"], scale_div)
-    bb = _apply_scale(rows["Buybacks"], scale_div)
+    # Apply scale to all rows
+    def s(key):
+        return _apply_scale(rows[key], scale_div)
+
+    ni = s("Net Income")
+    da = s("D&A")
+    sbc = s("Stock-Based Compensation")
+    def_tax = s("Deferred Taxes")
+    other_nc = s("Other Non-Cash")
+    d_rec = s("Δ Receivables")
+    d_inv = s("Δ Inventory")
+    d_pay = s("Δ Payables")
+    d_other_wc = s("Δ Other WC")
+    total_d_wc = s("Total Δ WC")
+    cfo = s("CFO")
+
+    capex = s("CapEx")
+    acq = s("Acquisitions")
+    div_st = s("Divestitures")
+    net_ma = s("Net M&A")
+    pinv = s("Purchase Of Investments")
+    sinv = s("Sale Of Investments")
+    net_inv = s("Net Investments")
+    other_inv = s("Other Investing")
+    cfi = s("CFI")
+
+    debt_iss = s("Debt Issued")
+    debt_rep = s("Debt Repaid")
+    net_debt = s("Net Debt Change")
+    eq_iss = s("Equity Issued")
+    bb = s("Buybacks")
+    net_cs = s("Net Common Stock Issuance")
+    div = s("Dividends Paid")
+    other_fin = s("Other Financing")
+    cff = s("CFF")
+
+    fx = s("FX Effect")
+    net_change = s("Net Change In Cash")
+    beg_cash = s("Beginning Cash")
+    end_cash = s("Ending Cash")
+    fcf = s("FCF")
 
     fcf_calc = [
         (cfo[i] - abs(capex[i])) if (cfo[i] is not None and capex[i] is not None) else None
@@ -385,35 +417,131 @@ def _create_cf_sheet(wb, cf_data, company_name, exchange, ticker, currency, mone
     _write_col_headers(ws, row, ["", f"FY{years[0]}", f"FY{years[1]}", f"FY{years[2]}"])
     row += 1
 
-    _write_section_header(ws, row, "Operating", 4); row += 1
-    _write_value_row(ws, row, "CFO", cfo, money_fmt, is_total=True); row += 1
-    _write_value_row(ws, row, "D&A", da, money_fmt); row += 1
+    # Net Income (start)
+    _write_value_row(ws, row, "Net Income", ni, money_fmt, is_total=True); row += 1
 
-    _write_section_header(ws, row, "Investing", 4); row += 1
-    _write_value_row(ws, row, "CapEx", capex, money_fmt); row += 1
-    _write_value_row(ws, row, "CFI", cfi, money_fmt, is_total=True); row += 1
+    _write_section_header(ws, row, "Non-cash adjustments", 4); row += 1
+    _write_value_row(ws, row, "  D&A", da, money_fmt); row += 1
+    _write_value_row(ws, row, "  Stock-Based Compensation", sbc, money_fmt); row += 1
+    _write_value_row(ws, row, "  Deferred Taxes", def_tax, money_fmt); row += 1
+    _write_value_row(ws, row, "  Other Non-Cash", other_nc, money_fmt); row += 1
 
-    _write_section_header(ws, row, "Financing", 4); row += 1
-    _write_value_row(ws, row, "Dividends Paid", div, money_fmt); row += 1
-    _write_value_row(ws, row, "Buybacks", bb, money_fmt); row += 1
-    _write_value_row(ws, row, "CFF", cff, money_fmt, is_total=True); row += 1
+    _write_section_header(ws, row, "Working Capital", 4); row += 1
+    _write_value_row(ws, row, "  Δ Receivables", d_rec, money_fmt); row += 1
+    _write_value_row(ws, row, "  Δ Inventory", d_inv, money_fmt); row += 1
+    _write_value_row(ws, row, "  Δ Payables", d_pay, money_fmt); row += 1
+    _write_value_row(ws, row, "  Δ Other WC", d_other_wc, money_fmt); row += 1
+    _write_value_row(ws, row, "  Total Δ WC", total_d_wc, money_fmt); row += 1
+
+    _write_value_row(ws, row, "CFO (Operating Cash Flow)", cfo, money_fmt, is_total=True); row += 1
+
+    _write_section_header(ws, row, "Capital expenditure", 4); row += 1
+    _write_value_row(ws, row, "  CapEx", capex, money_fmt); row += 1
+
+    _write_section_header(ws, row, "Acquisitions & divestitures", 4); row += 1
+    _write_value_row(ws, row, "  Acquisitions", acq, money_fmt); row += 1
+    _write_value_row(ws, row, "  Divestitures", div_st, money_fmt); row += 1
+    _write_value_row(ws, row, "  Net M&A", net_ma, money_fmt); row += 1
+
+    _write_section_header(ws, row, "Investment activities", 4); row += 1
+    _write_value_row(ws, row, "  Purchase of investments", pinv, money_fmt); row += 1
+    _write_value_row(ws, row, "  Sale/maturity of investments", sinv, money_fmt); row += 1
+    _write_value_row(ws, row, "  Net investments", net_inv, money_fmt); row += 1
+    _write_value_row(ws, row, "  Other investing", other_inv, money_fmt); row += 1
+
+    _write_value_row(ws, row, "CFI (Investing Cash Flow)", cfi, money_fmt, is_total=True); row += 1
+
+    _write_section_header(ws, row, "Debt activity", 4); row += 1
+    _write_value_row(ws, row, "  Debt issued", debt_iss, money_fmt); row += 1
+    _write_value_row(ws, row, "  Debt repaid", debt_rep, money_fmt); row += 1
+    _write_value_row(ws, row, "  Net debt change", net_debt, money_fmt); row += 1
+
+    _write_section_header(ws, row, "Equity activity", 4); row += 1
+    _write_value_row(ws, row, "  Equity issued", eq_iss, money_fmt); row += 1
+    _write_value_row(ws, row, "  Buybacks", bb, money_fmt); row += 1
+    _write_value_row(ws, row, "  Net common stock", net_cs, money_fmt); row += 1
+
+    _write_section_header(ws, row, "Distributions", 4); row += 1
+    _write_value_row(ws, row, "  Dividends paid", div, money_fmt); row += 1
+    _write_value_row(ws, row, "  Other financing", other_fin, money_fmt); row += 1
+
+    _write_value_row(ws, row, "CFF (Financing Cash Flow)", cff, money_fmt, is_total=True); row += 1
+
+    _write_section_header(ws, row, "FX & Net change", 4); row += 1
+    _write_value_row(ws, row, "  FX effect", fx, money_fmt); row += 1
+    _write_value_row(ws, row, "Net change in cash", net_change, money_fmt, is_total=True); row += 1
+
+    _write_section_header(ws, row, "Reconciliation", 4); row += 1
+    _write_value_row(ws, row, "  Beginning cash", beg_cash, money_fmt); row += 1
+    _write_value_row(ws, row, "  Ending cash", end_cash, money_fmt); row += 1
 
     _write_section_header(ws, row, "Free Cash Flow", 4); row += 1
-    _write_value_row(ws, row, "FCF (yfinance)", fcf, money_fmt); row += 1
-    _write_value_row(ws, row, "FCF reconstruit (CFO - |CapEx|)", fcf_calc, money_fmt); row += 1
+    _write_value_row(ws, row, "  FCF (yfinance)", fcf, money_fmt); row += 1
+    _write_value_row(ws, row, "  FCF reconstruit (CFO - |CapEx|)", fcf_calc, money_fmt); row += 1
 
-    checks = _build_cf_checks(fcf[2], fcf_calc[2])
+    # Checks
+    checks = _build_cf_checks_extended(cf_data, fcf, fcf_calc, scale_div)
     _write_checks(ws, row, checks, 4)
 
 
-def _build_cf_checks(fcf_yf, fcf_calc):
-    if fcf_yf is None or fcf_calc is None:
-        return [("neutral", "⊘ FCF check : données manquantes")]
-    diff_pct = abs(fcf_yf - fcf_calc) / abs(fcf_yf) if fcf_yf != 0 else 0
-    if diff_pct < 0.01:
-        return [("ok", f"✓ FCF yfinance ≈ FCF reconstruit (écart {diff_pct*100:.2f}%)")]
-    return [("warn", f"⚠ FCF yfinance ≠ FCF reconstruit (écart {diff_pct*100:.2f}%)")]
+def _build_cf_checks_extended(cf_data, fcf_scaled, fcf_calc_scaled, scale_div):
+    """Checks Cash Flow étendus : CFO articulation, FCF, Cash reconciliation."""
+    rows = cf_data["rows"]
+    # On utilise les valeurs originales (non scalées) pour les ratios
+    ni = rows["Net Income"][2]
+    da = rows["D&A"][2]
+    sbc = rows["Stock-Based Compensation"][2]
+    def_tax = rows["Deferred Taxes"][2]
+    other_nc = rows["Other Non-Cash"][2]
+    total_d_wc = rows["Total Δ WC"][2]
+    cfo_yf = rows["CFO"][2]
+    fcf_yf = rows["FCF"][2]
+    cfi_n = rows["CFI"][2]
+    cff_n = rows["CFF"][2]
+    fx_n = rows["FX Effect"][2]
+    beg_cash = rows["Beginning Cash"][2]
+    end_cash = rows["Ending Cash"][2]
 
+    checks = []
+
+    # Check 1 : CFO articulation
+    components = [ni, da, sbc, def_tax, other_nc, total_d_wc]
+    known = [v for v in components if v is not None]
+    if cfo_yf is not None and len(known) >= 3:
+        sum_known = sum(known)
+        diff_pct = abs(cfo_yf - sum_known) / abs(cfo_yf) if cfo_yf != 0 else 0
+        if diff_pct < 0.05:
+            checks.append(("ok", f"✓ CFO articulation : NI + ajustements ≈ CFO (écart {diff_pct*100:.1f}%)"))
+        else:
+            checks.append(("warn", f"⚠ CFO articulation : écart {diff_pct*100:.1f}% (lignes 'Other' non détaillées)"))
+    else:
+        checks.append(("neutral", "⊘ CFO articulation : données insuffisantes"))
+
+    # Check 2 : FCF reconstruction
+    if fcf_yf is not None and fcf_calc_scaled[2] is not None:
+        fcf_calc_n = fcf_calc_scaled[2] * scale_div  # re-unscale pour comparaison
+        diff_pct = abs(fcf_yf - fcf_calc_n) / abs(fcf_yf) if fcf_yf != 0 else 0
+        if diff_pct < 0.01:
+            checks.append(("ok", f"✓ FCF yfinance ≈ FCF reconstruit (écart {diff_pct*100:.2f}%)"))
+        else:
+            checks.append(("warn", f"⚠ FCF yfinance vs reconstruit : écart {diff_pct*100:.2f}%"))
+    else:
+        checks.append(("neutral", "⊘ FCF check : données manquantes"))
+
+    # Check 3 : Cash reconciliation
+    if (beg_cash is not None and end_cash is not None
+            and cfo_yf is not None and cfi_n is not None and cff_n is not None):
+        fx_val = fx_n if fx_n is not None else 0
+        calc_end = beg_cash + cfo_yf + cfi_n + cff_n + fx_val
+        diff_pct = abs(calc_end - end_cash) / abs(end_cash) if end_cash != 0 else 0
+        if diff_pct < 0.01:
+            checks.append(("ok", f"✓ Cash reconciliation : Beg + CFO + CFI + CFF + FX ≈ Ending Cash (écart {diff_pct*100:.2f}%)"))
+        else:
+            checks.append(("warn", f"⚠ Cash reconciliation : écart {diff_pct*100:.2f}%"))
+    else:
+        checks.append(("neutral", "⊘ Cash reconciliation : Beginning/Ending Cash absents"))
+
+    return checks
 
 def _create_ratios_sheet(wb, ratios, company_name, exchange, ticker, currency, money_fmt):
     ws = wb.create_sheet("Ratios")
