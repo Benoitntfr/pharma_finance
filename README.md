@@ -27,3 +27,5 @@ Entrer le ticker au prompt (ex: `TEM`, `PFE`, `SAN.PA`). Output inline + fichier
 3. **Balance Sheet** — N-1, N + checks équation comptable
 4. **Cash Flow 3Y** — CFO, CFI, CFF, CapEx, FCF, dividends, buybacks
 5. **Ratios** — CAGR, FCF/NI, ND/EBITDA, GW/TA, EV reconciliation
+
+Excel Number Format: _($* #\ ##0_);_($* (#\ ##0);_($* "-"_);_(@_)
