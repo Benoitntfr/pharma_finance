@@ -30,5 +30,5 @@ Entrer le ticker au prompt (ex: `TEM`, `PFE`, `SAN.PA`). Output inline + fichier
 
 Excel Number Format: 
 ```python
-_($* #\ ##0_);_($* (#\ ##0);_($* "-"_);_(@_)"
+_($* #\ ##0_);_($* (#\ ##0);_($* "-"_);_(@_)
 ```
